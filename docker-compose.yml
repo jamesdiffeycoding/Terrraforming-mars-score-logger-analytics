@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tm_postgres_dev
+    environment:
+      POSTGRES_USER: tm_user
+      POSTGRES_PASSWORD: tm_password
+      POSTGRES_DB: terraforming_mars_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - tm_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tm_user -d terraforming_mars_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres_test:
+    image: postgres:16-alpine
+    container_name: tm_postgres_test
+    environment:
+      POSTGRES_USER: tm_user
+      POSTGRES_PASSWORD: tm_password
+      POSTGRES_DB: terraforming_mars_test
+    ports:
+      - '5433:5432'
+    volumes:
+      - tm_postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tm_user -d terraforming_mars_test']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  tm_postgres_data:
+  tm_postgres_test_data:
