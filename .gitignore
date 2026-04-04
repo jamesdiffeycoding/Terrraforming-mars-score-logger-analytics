@@ -1,6 +1,7 @@
-# Plans (local only)
+# Plans and local docs (never committed)
 plan0.md
 claudetip.md
+commit-timestamps.md
 
 # Dependencies
 node_modules/
