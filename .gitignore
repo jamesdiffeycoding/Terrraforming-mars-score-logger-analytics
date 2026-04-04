@@ -1,0 +1,46 @@
+# Plans (local only)
+plan0.md
+claudetip.md
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# AWS CDK / Terraform
+cdk.out/
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
