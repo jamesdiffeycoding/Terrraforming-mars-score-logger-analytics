@@ -1,0 +1,312 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum GroupMemberStatus {
+  invited
+  active
+  removed
+}
+
+enum ClaimRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum OwnershipTransferStatus {
+  pending
+  accepted
+  rejected
+  expired
+}
+
+// ─── Reference / lookup tables ───────────────────────────────────────────────
+
+model Role {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  groupMembers GroupMember[]
+  invitations  Invitation[]
+
+  @@map("roles")
+}
+
+model Board {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  games Game[]
+
+  @@map("boards")
+}
+
+model ExpansionSet {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  corporations              Corporation[]
+  gameExpansionSets         GameExpansionSet[]
+  groupExpansionPresetItems GroupExpansionPresetItem[]
+
+  @@map("expansion_sets")
+}
+
+model Corporation {
+  id             String        @id @default(cuid())
+  name           String        @unique
+  expansionSetId String?
+  expansionSet   ExpansionSet? @relation(fields: [expansionSetId], references: [id])
+  createdAt      DateTime      @default(now())
+
+  gamePlayers GamePlayer[]
+
+  @@index([expansionSetId])
+  @@map("corporations")
+}
+
+// ─── Users & identity ────────────────────────────────────────────────────────
+
+model User {
+  id          String    @id @default(cuid())
+  cognitoSub  String    @unique
+  email       String    @unique
+  displayName String
+  avatarUrl   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  groupMembers           GroupMember[]
+  ownedGroups            Group[]                    @relation("GroupOwner")
+  createdPlayers         Player[]                   @relation("PlayerCreatedBy")
+  linkedPlayers          Player[]                   @relation("PlayerLinkedUser")
+  claimRequests          PlayerClaimRequest[]       @relation("ClaimRequester")
+  approvedClaims         PlayerClaimRequest[]       @relation("ClaimApprover")
+  createdGames           Game[]
+  sentInvitations        Invitation[]               @relation("InvitedBy")
+  ownershipTransfersFrom OwnershipTransferRequest[] @relation("TransferFrom")
+  ownershipTransfersTo   OwnershipTransferRequest[] @relation("TransferTo")
+  createdGroupPresets    GroupExpansionPreset[]
+
+  @@map("users")
+}
+
+// ─── Groups & membership ─────────────────────────────────────────────────────
+
+model Group {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  ownerUserId String
+  owner       User      @relation("GroupOwner", fields: [ownerUserId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  groupMembers              GroupMember[]
+  players                   Player[]
+  games                     Game[]
+  invitations               Invitation[]
+  ownershipTransferRequests OwnershipTransferRequest[]
+  expansionPresets          GroupExpansionPreset[]
+
+  @@index([ownerUserId])
+  @@map("groups")
+}
+
+model GroupMember {
+  id              String            @id @default(cuid())
+  groupId         String
+  group           Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User              @relation(fields: [userId], references: [id])
+  roleId          String
+  role            Role              @relation(fields: [roleId], references: [id])
+  status          GroupMemberStatus @default(invited)
+  invitedByUserId String?
+  joinedAt        DateTime          @default(now())
+
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("group_members")
+}
+
+// ─── Players ─────────────────────────────────────────────────────────────────
+
+model Player {
+  id              String    @id @default(cuid())
+  groupId         String
+  group           Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  linkedUserId    String?
+  linkedUser      User?     @relation("PlayerLinkedUser", fields: [linkedUserId], references: [id])
+  displayName     String
+  isGuest         Boolean   @default(false)
+  createdByUserId String
+  createdBy       User      @relation("PlayerCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  claimRequests PlayerClaimRequest[]
+  gamePlayers   GamePlayer[]
+  wonGames      Game[]               @relation("GameWinner")
+
+  @@index([groupId])
+  @@index([linkedUserId])
+  @@map("players")
+}
+
+model PlayerClaimRequest {
+  id               String             @id @default(cuid())
+  playerId         String
+  player           Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  requestingUserId String
+  requestingUser   User               @relation("ClaimRequester", fields: [requestingUserId], references: [id])
+  status           ClaimRequestStatus @default(pending)
+  approvedByUserId String?
+  approvedBy       User?              @relation("ClaimApprover", fields: [approvedByUserId], references: [id])
+  createdAt        DateTime           @default(now())
+
+  @@index([playerId])
+  @@index([requestingUserId])
+  @@map("player_claim_requests")
+}
+
+// ─── Games ────────────────────────────────────────────────────────────────────
+
+model Game {
+  id              String    @id @default(cuid())
+  groupId         String
+  group           Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  boardId         String
+  board           Board     @relation(fields: [boardId], references: [id])
+  playedAt        DateTime
+  winnerPlayerId  String?
+  winner          Player?   @relation("GameWinner", fields: [winnerPlayerId], references: [id])
+  notes           String?
+  createdByUserId String
+  createdBy       User      @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  gamePlayers       GamePlayer[]
+  gameExpansionSets GameExpansionSet[]
+
+  @@index([groupId])
+  @@index([boardId])
+  @@index([playedAt])
+  @@index([winnerPlayerId])
+  @@map("games")
+}
+
+model GamePlayer {
+  id              String       @id @default(cuid())
+  gameId          String
+  game            Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  playerId        String
+  player          Player       @relation(fields: [playerId], references: [id])
+  corporationId   String?
+  corporation     Corporation? @relation(fields: [corporationId], references: [id])
+  score           Int?
+  placement       Int?
+  terraformRating Int?
+  notes           String?
+  isWinner        Boolean      @default(false)
+
+  @@unique([gameId, playerId])
+  @@index([playerId])
+  @@index([corporationId])
+  @@index([score])
+  @@map("game_players")
+}
+
+model GameExpansionSet {
+  gameId         String
+  game           Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  expansionSetId String
+  expansionSet   ExpansionSet @relation(fields: [expansionSetId], references: [id])
+
+  @@id([gameId, expansionSetId])
+  @@map("game_expansion_sets")
+}
+
+// ─── Group expansion presets ─────────────────────────────────────────────────
+
+model GroupExpansionPreset {
+  id              String   @id @default(cuid())
+  groupId         String
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name            String
+  createdByUserId String
+  createdBy       User     @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime @default(now())
+
+  items GroupExpansionPresetItem[]
+
+  @@index([groupId])
+  @@map("group_expansion_presets")
+}
+
+model GroupExpansionPresetItem {
+  presetId       String
+  preset         GroupExpansionPreset @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  expansionSetId String
+  expansionSet   ExpansionSet         @relation(fields: [expansionSetId], references: [id])
+
+  @@id([presetId, expansionSetId])
+  @@map("group_expansion_preset_items")
+}
+
+// ─── Invitations & ownership transfers ───────────────────────────────────────
+
+model Invitation {
+  id              String    @id @default(cuid())
+  groupId         String
+  group           Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  email           String
+  roleId          String
+  role            Role      @relation(fields: [roleId], references: [id])
+  invitedByUserId String
+  invitedBy       User      @relation("InvitedBy", fields: [invitedByUserId], references: [id])
+  token           String    @unique
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([groupId])
+  @@index([email])
+  @@map("invitations")
+}
+
+model OwnershipTransferRequest {
+  id         String                  @id @default(cuid())
+  groupId    String
+  group      Group                   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  fromUserId String
+  fromUser   User                    @relation("TransferFrom", fields: [fromUserId], references: [id])
+  toUserId   String
+  toUser     User                    @relation("TransferTo", fields: [toUserId], references: [id])
+  status     OwnershipTransferStatus @default(pending)
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime                @default(now())
+
+  @@index([groupId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@map("ownership_transfer_requests")
+}
