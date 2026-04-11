@@ -17,7 +17,7 @@ type FormData = z.infer<typeof schema>;
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const form = useForm<FormData>({ resolver: zodResolver(schema) });
+  const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { email: '', displayName: '', password: '' } });
 
   async function onSubmit(data: FormData) {
     try {

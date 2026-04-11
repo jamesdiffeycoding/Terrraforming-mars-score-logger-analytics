@@ -1,47 +1,40 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { toast } from 'sonner';
-
-const emailSchema = z.object({ email: z.string().email() });
-const resetSchema = z.object({
-  code: z.string().length(6),
-  newPassword: z.string().min(8, 'At least 8 characters'),
-});
-type EmailData = z.infer<typeof emailSchema>;
-type ResetData = z.infer<typeof resetSchema>;
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [stage, setStage] = useState<'request' | 'reset'>('request');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const emailForm = useForm<EmailData>({ resolver: zodResolver(emailSchema) });
-  const resetForm = useForm<ResetData>({ resolver: zodResolver(resetSchema) });
-
-  async function onRequestSubmit(data: EmailData) {
+  async function handleRequest(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
     await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: data.email }),
+      body: JSON.stringify({ email }),
     });
-    setEmail(data.email);
+    setSubmitting(false);
     setStage('reset');
     toast.info('If that email exists, a reset code was sent.');
   }
 
-  async function onResetSubmit(data: ResetData) {
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    if (code.length !== 6) { toast.error('Code must be exactly 6 digits'); return; }
+    if (newPassword.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    setSubmitting(true);
     try {
       const res = await fetch('/api/auth/confirm-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: data.code, newPassword: data.newPassword }),
+        body: JSON.stringify({ email, code, newPassword }),
       });
       if (!res.ok) {
         const body = (await res.json()) as { message?: string };
@@ -51,6 +44,8 @@ export function ForgotPasswordPage() {
       navigate('/login');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Reset failed');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -60,62 +55,63 @@ export function ForgotPasswordPage() {
         <CardHeader>
           <CardTitle>Reset password</CardTitle>
           <CardDescription>
-            {stage === 'request' ? 'Enter your email to receive a reset code.' : `Enter the code sent to ${email}.`}
+            {stage === 'request'
+              ? 'Enter your email to receive a reset code.'
+              : `Enter the code sent to ${email}.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {stage === 'request' ? (
-            <Form {...emailForm}>
-              <form onSubmit={emailForm.handleSubmit(onRequestSubmit)} className="grid gap-4">
-                <FormField
-                  control={emailForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl><Input type="email" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+            <form onSubmit={handleRequest} className="grid gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="fp-email">Email</label>
+                <input
+                  id="fp-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-8 w-full rounded-lg border px-2.5 py-1 text-sm outline-none focus-visible:ring-2"
                 />
-                <Button type="submit" className="w-full" disabled={emailForm.formState.isSubmitting}>
-                  {emailForm.formState.isSubmitting ? 'Sending…' : 'Send reset code'}
-                </Button>
-                <p className="text-center text-sm text-muted-foreground">
-                  <Link to="/login" className="underline underline-offset-4">Back to sign in</Link>
-                </p>
-              </form>
-            </Form>
+              </div>
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? 'Sending…' : 'Send reset code'}
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                <Link to="/login" className="underline underline-offset-4">Back to sign in</Link>
+              </p>
+            </form>
           ) : (
-            <Form {...resetForm}>
-              <form onSubmit={resetForm.handleSubmit(onResetSubmit)} className="grid gap-4">
-                <FormField
-                  control={resetForm.control}
-                  name="code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Reset code</FormLabel>
-                      <FormControl><Input placeholder="123456" maxLength={6} inputMode="numeric" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+            <form onSubmit={handleReset} className="grid gap-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="fp-code">Reset code</label>
+                <input
+                  id="fp-code"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="h-8 w-full rounded-lg border px-2.5 py-1 text-sm outline-none focus-visible:ring-2"
                 />
-                <FormField
-                  control={resetForm.control}
-                  name="newPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>New password</FormLabel>
-                      <FormControl><Input type="password" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium" htmlFor="fp-password">New password</label>
+                <input
+                  id="fp-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="h-8 w-full rounded-lg border px-2.5 py-1 text-sm outline-none focus-visible:ring-2"
                 />
-                <Button type="submit" className="w-full" disabled={resetForm.formState.isSubmitting}>
-                  {resetForm.formState.isSubmitting ? 'Resetting…' : 'Reset password'}
-                </Button>
-              </form>
-            </Form>
+              </div>
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? 'Resetting…' : 'Reset password'}
+              </Button>
+            </form>
           )}
         </CardContent>
       </Card>

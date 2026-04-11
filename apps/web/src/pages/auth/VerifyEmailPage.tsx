@@ -17,7 +17,7 @@ export function VerifyEmailPage() {
   const [params] = useSearchParams();
   const email = params.get('email') ?? '';
   const navigate = useNavigate();
-  const form = useForm<FormData>({ resolver: zodResolver(schema) });
+  const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { code: '' } });
 
   async function onSubmit(data: FormData) {
     try {
@@ -60,6 +60,7 @@ export function VerifyEmailPage() {
                         placeholder="123456"
                         maxLength={6}
                         inputMode="numeric"
+                        autoComplete="one-time-code"
                         {...field}
                       />
                     </FormControl>

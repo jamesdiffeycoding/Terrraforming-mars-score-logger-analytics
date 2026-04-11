@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { Slot } from '@radix-ui/react-slot';
 import {
   Controller,
   type ControllerProps,
@@ -58,16 +57,13 @@ function FormLabel({ className, ...props }: React.ComponentPropsWithoutRef<typeo
   return <Label className={cn(error && 'text-destructive', className)} htmlFor={formItemId} {...props} />;
 }
 
-function FormControl({ ...props }: React.ComponentPropsWithoutRef<typeof Slot>) {
+function FormControl({ children }: { children: React.ReactElement<Record<string, unknown>> }) {
   const { error, formItemId, formMessageId } = useFormField();
-  return (
-    <Slot
-      id={formItemId}
-      aria-describedby={!error ? undefined : formMessageId}
-      aria-invalid={!!error}
-      {...props}
-    />
-  );
+  return React.cloneElement(children, {
+    id: formItemId,
+    'aria-describedby': !error ? undefined : formMessageId,
+    'aria-invalid': !!error || undefined,
+  });
 }
 
 function FormDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
