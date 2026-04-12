@@ -20,7 +20,7 @@ export class GroupMemberGuard implements CanActivate {
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const request = ctx.switchToHttp().getRequest();
     const user = request.user;
-    const groupId = request.params.id ?? request.params.groupId;
+    const groupId = request.params.groupId ?? request.params.id;
 
     const group = await this.prisma.group.findFirst({
       where: { id: groupId, deletedAt: null },
