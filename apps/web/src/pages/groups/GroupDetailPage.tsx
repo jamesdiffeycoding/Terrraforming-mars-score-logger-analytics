@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PlayersTab } from './PlayersTab';
 import { toast } from 'sonner';
 
 interface Member {
@@ -23,6 +24,7 @@ interface Group {
 }
 
 const ROLE_OPTIONS = ['admin', 'member', 'viewer'] as const;
+type Tab = 'members' | 'players';
 
 export function GroupDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +32,7 @@ export function GroupDetailPage() {
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<Tab>('members');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member' | 'viewer'>('member');
   const [inviting, setInviting] = useState(false);
@@ -57,7 +60,6 @@ export function GroupDetailPage() {
       await api.post(`/groups/${id}/invite`, { email: inviteEmail, role: inviteRole });
       toast.success(`Invited ${inviteEmail}`);
       setInviteEmail('');
-      // Refresh members list
       const ms = await api.get<Member[]>(`/groups/${id}/members`);
       setMembers(ms);
     } catch (err) {
@@ -99,79 +101,98 @@ export function GroupDetailPage() {
         <span className="text-xs bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full capitalize ml-auto">{myRole}</span>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-8 grid gap-8">
+      <main className="max-w-3xl mx-auto px-6 py-6 grid gap-6">
         {group.description && (
           <p className="text-muted-foreground text-sm">{group.description}</p>
         )}
 
-        {/* Members list */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Members ({members.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-3">
-                <div className="size-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                  {m.user.displayName[0].toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{m.user.displayName}</p>
-                  <p className="text-xs text-muted-foreground truncate">{m.user.email}</p>
-                </div>
-                {canManage && m.role.name !== 'owner' && m.userId !== user?.id ? (
-                  <div className="flex items-center gap-2">
+        {/* Tabs */}
+        <div className="flex gap-1 border-b">
+          {(['members', 'players'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+                tab === t ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* Members tab */}
+        {tab === 'members' && (
+          <div className="grid gap-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Members ({members.length})</CardTitle></CardHeader>
+              <CardContent className="grid gap-3">
+                {members.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3">
+                    <div className="size-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                      {m.user.displayName[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{m.user.displayName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{m.user.email}</p>
+                    </div>
+                    {canManage && m.role.name !== 'owner' && m.userId !== user?.id ? (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={m.role.name}
+                          onChange={(e) => handleRoleChange(m.id, m.userId, e.target.value)}
+                          className="text-xs border rounded px-1.5 py-1 bg-background"
+                        >
+                          {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <button
+                          onClick={() => handleRemoveMember(m.userId, m.user.displayName)}
+                          className="text-xs text-destructive hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground capitalize">{m.role.name}</span>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {canManage && (
+              <Card>
+                <CardHeader><CardTitle className="text-base">Invite member</CardTitle></CardHeader>
+                <CardContent>
+                  <form onSubmit={handleInvite} className="flex gap-2">
+                    <input
+                      type="email"
+                      required
+                      placeholder="email@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="flex-1 h-9 rounded-lg border px-3 text-sm outline-none focus-visible:ring-2"
+                    />
                     <select
-                      value={m.role.name}
-                      onChange={(e) => handleRoleChange(m.id, m.userId, e.target.value)}
-                      className="text-xs border rounded px-1.5 py-1 bg-background"
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
+                      className="border rounded-lg px-2 text-sm bg-background"
                     >
                       {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
-                    <button
-                      onClick={() => handleRemoveMember(m.userId, m.user.displayName)}
-                      className="text-xs text-destructive hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground capitalize">{m.role.name}</span>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+                    <Button type="submit" size="sm" disabled={inviting}>
+                      {inviting ? 'Inviting…' : 'Invite'}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
-        {/* Invite */}
-        {canManage && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Invite member</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleInvite} className="flex gap-2">
-                <input
-                  type="email"
-                  required
-                  placeholder="email@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="flex-1 h-9 rounded-lg border px-3 text-sm outline-none focus-visible:ring-2"
-                />
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
-                  className="border rounded-lg px-2 text-sm bg-background"
-                >
-                  {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
-                <Button type="submit" size="sm" disabled={inviting}>
-                  {inviting ? 'Inviting…' : 'Invite'}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+        {/* Players tab */}
+        {tab === 'players' && id && (
+          <PlayersTab groupId={id} canManage={canManage} />
         )}
       </main>
     </div>
