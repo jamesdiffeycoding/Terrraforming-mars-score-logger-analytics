@@ -7,12 +7,14 @@ import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { GroupsPage } from '@/pages/groups/GroupsPage';
 import { CreateGroupPage } from '@/pages/groups/CreateGroupPage';
 import { GroupDetailPage } from '@/pages/groups/GroupDetailPage';
+import { AcceptInvitePage } from '@/pages/AcceptInvitePage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/verify-email', element: <VerifyEmailPage /> },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/invite/accept', element: <AcceptInvitePage /> },
   {
     element: <ProtectedRoute />,
     children: [
