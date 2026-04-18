@@ -11,6 +11,8 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
+import { AcceptInviteDto } from './dto/accept-invite.dto';
+import { InitiateTransferDto } from './dto/initiate-transfer.dto';
 import { User } from '@prisma/client';
 
 @Controller('groups')
@@ -86,5 +88,64 @@ export class GroupsController {
     @CurrentUser() user: User,
   ) {
     return this.groupsService.removeMember(id, userId, user);
+  }
+
+  // ── Invitations ───────────────────────────────────────────────────────────
+
+  @Get('invitations/mine')
+  getMyInvitations(@CurrentUser() user: User) {
+    return this.groupsService.getPendingInvitations(user);
+  }
+
+  @Post('invitations/accept')
+  acceptInvitation(@Body() dto: AcceptInviteDto, @CurrentUser() user: User) {
+    return this.groupsService.acceptInvitation(dto, user);
+  }
+
+  // ── Ownership transfer ────────────────────────────────────────────────────
+
+  @Post(':id/ownership-transfer')
+  @UseGuards(GroupMemberGuard)
+  @Roles('owner')
+  initiateTransfer(
+    @Param('id') id: string,
+    @Body() dto: InitiateTransferDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.groupsService.initiateTransfer(id, dto, user);
+  }
+
+  @Get(':id/ownership-transfer')
+  @UseGuards(GroupMemberGuard)
+  getPendingTransfer(@Param('id') id: string) {
+    return this.groupsService.getPendingTransfer(id);
+  }
+
+  @Post(':id/ownership-transfer/:requestId/accept')
+  acceptTransfer(
+    @Param('id') id: string,
+    @Param('requestId') requestId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.groupsService.respondToTransfer(id, requestId, true, user);
+  }
+
+  @Post(':id/ownership-transfer/:requestId/reject')
+  rejectTransfer(
+    @Param('id') id: string,
+    @Param('requestId') requestId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.groupsService.respondToTransfer(id, requestId, false, user);
+  }
+
+  @Delete(':id/ownership-transfer/:requestId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  cancelTransfer(
+    @Param('id') id: string,
+    @Param('requestId') requestId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.groupsService.cancelTransfer(id, requestId, user);
   }
 }
