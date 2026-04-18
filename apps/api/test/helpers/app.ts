@@ -1,12 +1,21 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { APP_GUARD } from '@nestjs/core';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/database/prisma.service';
+import { JwtAuthGuard } from '../../src/auth/guards/jwt-auth.guard';
+import { JwtTestGuard } from './jwt-test.guard';
 
 export async function createTestApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  })
+    // Swap the real Cognito JWT guard for the test guard that accepts "test:<userId>" tokens
+    .overrideProvider(JwtAuthGuard)
+    .useClass(JwtTestGuard)
+    .overrideProvider(APP_GUARD)
+    .useClass(JwtTestGuard)
+    .compile();
 
   const app = moduleRef.createNestApplication();
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
