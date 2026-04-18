@@ -1,0 +1,10 @@
+aws_region          = "eu-west-1"
+environment         = "dev"
+az_count            = 2
+db_name             = "terraforming_mars"
+db_username         = "tm_admin"
+db_instance_class   = "db.t4g.micro"
+task_cpu            = 256
+task_memory         = 512
+desired_count       = 1
+acm_certificate_arn = "arn:aws:acm:eu-west-1:123456789012:certificate/..."
